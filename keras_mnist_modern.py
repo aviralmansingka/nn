@@ -26,13 +26,13 @@ model = Sequential()
 
 model.add(Dense(625, input_dim=784, init='uniform', activation='relu'))
 model.add(Dropout(0.5))
-model.add(Dense(512, init='uniform', activation='relu'))
-model.add(Dropout(0.2))
+# model.add(Dense(512, init='uniform', activation='relu'))
+# model.add(Dropout(0.2))
 model.add(Dense(10, init='uniform', activation='softmax'))
 
 model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 
-model.fit(X_train, Y_train, nb_epoch=nb_epoch, batch_size=batch_size, validation_data=(X_test, Y_test))
+model.fit(X_train, Y_train, nb_epoch=nb_epoch, batch_size=batch_size, validation_data=(X_train, Y_train))
 
 score = model.evaluate(X_test, Y_test, verbose=0)
 
