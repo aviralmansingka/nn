@@ -1,81 +1,101 @@
 import numpy as np
 from numpy import exp
+import matplotlib.pyplot as plt
 
 
-def generate_data(w1, w2):
+def generate_data(w1, w2, shape):
+    x1 = np.random.randn(shape[0]/2, shape[1]-1) + w1
+    x2 = np.random.randn(shape[0]/2, shape[1]-1) + w2
 
-    X1 = w1 * np.random.randn(100, 4) + w1
-    X2 = w2 * np.random.randn(100, 4) + w2
+    x = np.append(x1, x2, axis=0)
 
-    X = np.append(X1, X2, axis=0)
+    y1 = np.ones((shape[0]/2, 1))
+    y2 = np.zeros((shape[0]/2, 1))
 
-    Y1 = np.ones((100, 1))
-    Y2 = np.zeros((100, 1))
+    y = np.append(y1, y2, axis=0)
 
-    Y = np.append(Y1, Y2, axis=0)
-
-    return np.append(X, Y, axis=1)
+    return np.append(x, y, axis=1)
 
 
 def init_weights(layers=[]):
-
-    assert layers != []
-
     W = []
-
     for i in range(len(layers)-1):
-
-        w = np.random.randn(layers[i+1], layers[i])
+        w = 0.01 * np.random.randn(layers[i], layers[i+1])
         W.append(w)
 
     return W
 
-def model(X, W):
-
-    Y = []
+def model(x, W):
     Z = []
-
-    input = X.T
-
+    Y = []
+    input = x
     for w in W:
+        z = np.dot(input, w)
+        y = 1/(1+exp(-z))
 
-        z = np.dot(w, input)
-        print("z:", z.shape)
         Z.append(z)
-
-        y = 1 / (1+exp(-z))
-        print("y:", y.shape)
         Y.append(y)
-
         input = y
 
-    return np.array(Y), np.array(Z)
+
+    return Z, Y
 
 
-def cal_grad(W, Y, Z, Y_true):
+def cal_grads(W, x, Y, Z, y_true):
 
     # last layer
-    Y2_grad = -1 * np.sum(Y_true - Y[-1])
-    Z_grad = np.sum(Y[-1] * (1 - Y[-1])) * Y2_grad
+    loss = -1 * np.sum((y_true - Y[-1])**2)
 
-    import ipdb; ipdb.set_trace()
-    # second last layer
-    Y1_grad = W[-1] * Z_grad
+    y1_grad = -1 * np.sum((y_true - Y[-1]), axis=0) / 10
+    z1_grad = np.sum(Y[-1] * (1-Y[-1]) * -1 * (y_true - Y[-1]), axis=0)
+    w1_grad = (np.sum(Y[-2], axis=0) * z1_grad).reshape(3,1)
 
+    y0_grad = z1_grad * W[-1]
+    z0_grad = np.sum(Y[-2] * (1-Y[-2]) * -1 * y1_grad, axis=0).reshape(3,1)
+    w0_grad = (np.sum(x,axis=0) * z0_grad).T
+
+    return [w0_grad, w1_grad], loss
+
+
+def update_weights(W, grads, lr=0.05):
+
+    for w, grad in zip(W, grads):
+        assert w.shape == grad.shape
+        w -= lr * grad
+
+    return W
 
 
 if __name__ == '__main__':
 
-    data = generate_data(4, -4)
-    assert data.shape == (200,5)
+    input_dim = 3
+    number_rows = 100
+    data_shape = (number_rows, input_dim)
 
-    X = data[:, :4]
-    Y_true = data[:, 4:]
+    data = generate_data(1, -1, shape=data_shape)
+    assert data.shape == data_shape
 
-    W = init_weights([4, 3, 1])
+    negative = data[data[:, 2] == 0]
+    positive = data[data[:, 2] == 1]
 
-    Y, Z = model(X, W)
-    print("Y:", Y[0].shape, Y[1].shape)
-    print("Z:", Z[0].shape, Z[1].shape)
+    np.random.shuffle(data)
+    x = data[:, :input_dim-1]
+    y_true = data[:, input_dim-1:]
 
-    cal_grad(W, Y, Z, Y_true)
+    W = init_weights([input_dim-1, 3, 1])
+
+    for i in range(1000):
+
+        Z, Y = model(x, W)
+        grads, loss = cal_grads(W, x, Y, Z, y_true)
+        W = update_weights(W, grads, lr=0.1)
+
+        pred = np.round(Y[-1])
+
+        a = pred.flatten() == y_true.flatten()
+        result = float(np.sum(a)) / number_rows
+
+        if i % 100 == 0:
+            print(i, result, loss)
+
+    print(W)
